@@ -1,72 +1,80 @@
-# Taskboard Kanban (Bun + Hapi + Vue + PostgreSQL + RabbitMQ + Docker)
+# Taskboard Sticky Notes (Bun + Hapi + Vue + PostgreSQL + RabbitMQ + Docker)
 
-Aplikasi taskboard visual untuk memantau alur kerja real-time (To Do, In Progress, Done), lengkap dengan assignment, komentar, WIP limit, dan analitik kinerja assignee.
+Aplikasi sticky notes berbasis web dengan gaya papan kosong:
+- klik `+` untuk membuat note baru (warna & posisi acak),
+- drag & resize bebas (desktop + mobile),
+- edit judul (double click desktop / tap-hold mobile),
+- autosave ke PostgreSQL secara real-time.
 
-## Kenapa stack ini?
+## Stack
 
-- Frontend: **Vue.js** (lebih cepat dipelajari untuk pemula, struktur komponen sederhana)
-- Backend: **Bun.js + Hapi.js** (async API, performa cepat, struktur server jelas)
-- Database: **PostgreSQL** (relasional kuat, cocok untuk analytics, konsistensi data)
-- Queue/Event: **RabbitMQ** (publish event task untuk integrasi real-time/worker lain)
-- Container: **Docker Compose** (setup lokal cepat dan konsisten)
+- Frontend: Vue 3 + Vite + Interact.js
+- Backend: Bun.js + Hapi.js (fully async)
+- Database: PostgreSQL
+- Event bus: RabbitMQ
+- Infra: Docker Compose
 
-## Fitur Utama
+## Fitur Utama (UI Saat Ini)
 
-- Kanban board: drag & drop antar kolom `todo`, `in_progress`, `done`
-- CRUD task (judul, deskripsi, assignee, prioritas, due date)
-- Komentar pada task untuk kolaborasi
-- WIP limit per assignee (`max 3` task `in_progress`)
-- Analitik assignee:
-  - total task
-  - breakdown status
-  - rata-rata waktu penyelesaian (jam)
-- Event RabbitMQ yang dipublish:
-  - `task.created`
-  - `task.updated`
-  - `task.moved`
-  - `task.deleted`
-  - `task.comment.added`
-  - `sticky_note.created`
-  - `sticky_note.updated`
-  - `sticky_note.deleted`
+- Halaman putih minimalis + tombol `+` di kiri atas
+- Sticky note tak terbatas
+- Posisi note bisa digeser bebas
+- Ukuran note bisa di-resize
+- Isi note (title + content) editable
+- Hapus note
+- Persisten setelah refresh/restart backend (autosave ke DB)
 
-## Arsitektur SRP (Single Responsibility Principle)
+## Arsitektur SRP
 
-- `controllers/`: validasi input & HTTP response
-- `services/`: aturan bisnis (WIP limit, orkestrasi use case)
+- `controllers/`: validasi request + response HTTP
+- `services/`: aturan bisnis/use-case
 - `repositories/`: query database
-- `services/rabbitMqPublisher.js`: event publishing
-- `routes/`: deklarasi endpoint
+- `routes/`: registrasi endpoint
 - `db/`: koneksi pool + migrasi
+- `services/rabbitMqPublisher.js`: publish domain events
 
-## Menjalankan dengan Docker
+## Menjalankan (Docker)
 
-1. Build dan start service inti:
-
+1. Jalankan service:
 ```bash
-docker compose up -d --build postgres rabbitmq backend
+docker compose up -d --build postgres rabbitmq backend frontend
 ```
 
-2. Jalankan migrasi schema:
-
+2. Jalankan migrasi:
 ```bash
 docker compose run --rm backend-migrate
 ```
 
-3. Jalankan frontend:
-
-```bash
-docker compose up -d --build frontend
-```
-
-4. Akses aplikasi:
-
+3. Akses:
 - Frontend: `http://localhost:5173`
 - Backend API: `http://localhost:3001`
-- RabbitMQ UI: `http://localhost:15672` (guest / guest)
+- RabbitMQ UI: `http://localhost:15672` (`guest` / `guest`)
 
-## Endpoint API ringkas
+## Menjalankan (Dev Cepat Tanpa Rebuild)
 
+Backend:
+```bash
+cd backend
+bun install
+bun run dev
+```
+
+Frontend:
+```bash
+cd frontend
+bun install
+bun run dev --host 0.0.0.0 --port 5173
+```
+
+## API Endpoint
+
+Sticky notes:
+- `GET /api/sticky-notes`
+- `POST /api/sticky-notes`
+- `PATCH /api/sticky-notes/{noteId}`
+- `DELETE /api/sticky-notes/{noteId}`
+
+Taskboard legacy (masih tersedia di backend):
 - `GET /api/tasks`
 - `POST /api/tasks`
 - `PATCH /api/tasks/{taskId}`
@@ -75,8 +83,6 @@ docker compose up -d --build frontend
 - `GET /api/tasks/{taskId}/comments`
 - `POST /api/tasks/{taskId}/comments`
 - `GET /api/analytics/assignees`
-- `GET /api/sticky-notes`
-- `POST /api/sticky-notes`
-- `PATCH /api/sticky-notes/{noteId}`
-- `DELETE /api/sticky-notes/{noteId}`
+
+Health:
 - `GET /health`
