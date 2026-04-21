@@ -2,7 +2,16 @@ import dotenv from 'dotenv';
 
 dotenv.config();
 
-const required = ['PORT', 'DB_HOST', 'DB_PORT', 'DB_NAME', 'DB_USER', 'DB_PASSWORD', 'RABBITMQ_URL'];
+const required = [
+  'PORT',
+  'DB_HOST',
+  'DB_PORT',
+  'DB_NAME',
+  'DB_USER',
+  'DB_PASSWORD',
+  'RABBITMQ_URL',
+  'AUTH_SECRET'
+];
 
 for (const key of required) {
   if (!process.env[key]) {
@@ -21,5 +30,6 @@ export const env = {
   },
   rabbitmqUrl: process.env.RABBITMQ_URL,
   rabbitmqExchange: process.env.RABBITMQ_EXCHANGE || 'taskboard.events',
-  corsOrigin: process.env.CORS_ORIGIN || '*'
+  corsOrigin: process.env.CORS_ORIGIN || '*',
+  authSecret: process.env.AUTH_SECRET
 };

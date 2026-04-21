@@ -1,7 +1,8 @@
 export class StickyNoteService {
-  constructor(stickyNoteRepository, eventPublisher) {
+  constructor(stickyNoteRepository, eventPublisher, realtimeHub) {
     this.stickyNoteRepository = stickyNoteRepository;
     this.eventPublisher = eventPublisher;
+    this.realtimeHub = realtimeHub;
   }
 
   async listNotes() {
@@ -10,7 +11,10 @@ export class StickyNoteService {
 
   async createNote(payload) {
     const note = await this.stickyNoteRepository.create(payload);
+
     await this.eventPublisher.publish('sticky_note.created', { noteId: note.id, note });
+    this.realtimeHub.broadcast('sticky_note.created', { note });
+
     return note;
   }
 
@@ -21,6 +25,8 @@ export class StickyNoteService {
     }
 
     await this.eventPublisher.publish('sticky_note.updated', { noteId: note.id, note });
+    this.realtimeHub.broadcast('sticky_note.updated', { note });
+
     return note;
   }
 
@@ -31,5 +37,6 @@ export class StickyNoteService {
     }
 
     await this.eventPublisher.publish('sticky_note.deleted', { noteId: id });
+    this.realtimeHub.broadcast('sticky_note.deleted', { noteId: id });
   }
 }

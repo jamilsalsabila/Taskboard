@@ -25,28 +25,37 @@ const updateSchema = Joi.object({
 }).min(1);
 
 export class StickyNoteController {
-  constructor(stickyNoteService) {
+  constructor(stickyNoteService, authTokenService) {
     this.stickyNoteService = stickyNoteService;
+    this.authTokenService = authTokenService;
   }
 
-  listNotes = async (_request, h) => {
+  #authenticate(request) {
+    return this.authTokenService.extractFromAuthorizationHeader(request.headers.authorization);
+  }
+
+  listNotes = async (request, h) => {
+    this.#authenticate(request);
     const notes = await this.stickyNoteService.listNotes();
     return h.response({ data: notes }).code(200);
   };
 
   createNote = async (request, h) => {
+    this.#authenticate(request);
     const payload = await createSchema.validateAsync(request.payload, { abortEarly: false });
     const note = await this.stickyNoteService.createNote(payload);
     return h.response({ data: note }).code(201);
   };
 
   updateNote = async (request, h) => {
+    this.#authenticate(request);
     const payload = await updateSchema.validateAsync(request.payload, { abortEarly: false });
     const note = await this.stickyNoteService.updateNote(request.params.noteId, payload);
     return h.response({ data: note }).code(200);
   };
 
   deleteNote = async (request, h) => {
+    this.#authenticate(request);
     await this.stickyNoteService.deleteNote(request.params.noteId);
     return h.response().code(204);
   };

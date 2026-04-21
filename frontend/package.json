@@ -9,7 +9,9 @@
     "preview": "vite preview --host 0.0.0.0 --port 4173"
   },
   "dependencies": {
+    "idb-keyval": "^6.2.1",
     "interactjs": "^1.10.27",
+    "p-queue": "^8.0.1",
     "vue": "^3.5.13"
   },
   "devDependencies": {

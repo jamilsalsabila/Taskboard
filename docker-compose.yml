@@ -35,6 +35,7 @@ services:
       RABBITMQ_URL: amqp://guest:guest@rabbitmq:5672
       RABBITMQ_EXCHANGE: taskboard.events
       CORS_ORIGIN: '*'
+      AUTH_SECRET: local-dev-super-secret
     ports:
       - "3001:3001"
 
@@ -52,6 +53,7 @@ services:
       DB_USER: taskboard
       DB_PASSWORD: taskboard
       RABBITMQ_URL: amqp://guest:guest@rabbitmq:5672
+      AUTH_SECRET: local-dev-super-secret
     command: ["bun", "run", "migrate"]
 
   frontend:

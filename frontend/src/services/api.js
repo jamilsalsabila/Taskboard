@@ -4,10 +4,20 @@ const inferredBaseUrl =
     : 'http://localhost:3001';
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || inferredBaseUrl;
+let authToken = '';
+
+export const setAuthToken = (token) => {
+  authToken = token || '';
+};
 
 const request = async (path, options = {}) => {
+  const baseHeaders = { 'Content-Type': 'application/json' };
+  if (authToken) {
+    baseHeaders.Authorization = `Bearer ${authToken}`;
+  }
+
   const response = await fetch(`${API_BASE_URL}${path}`, {
-    headers: { 'Content-Type': 'application/json' },
+    headers: baseHeaders,
     ...options
   });
 
@@ -25,6 +35,8 @@ const request = async (path, options = {}) => {
 };
 
 export const api = {
+  authGuest: (name) =>
+    request('/api/auth/guest', { method: 'POST', body: JSON.stringify({ name }) }),
   listTasks: () => request('/api/tasks'),
   createTask: (body) => request('/api/tasks', { method: 'POST', body: JSON.stringify(body) }),
   updateTask: (taskId, body) => request(`/api/tasks/${taskId}`, { method: 'PATCH', body: JSON.stringify(body) }),
