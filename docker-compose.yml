@@ -1,0 +1,67 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: taskboard-postgres
+    environment:
+      POSTGRES_USER: taskboard
+      POSTGRES_PASSWORD: taskboard
+      POSTGRES_DB: taskboard
+    ports:
+      - "5432:5432"
+    volumes:
+      - pg_data:/var/lib/postgresql/data
+
+  rabbitmq:
+    image: rabbitmq:3.13-management
+    container_name: taskboard-rabbitmq
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+
+  backend:
+    build:
+      context: ./backend
+    container_name: taskboard-backend
+    depends_on:
+      - postgres
+      - rabbitmq
+    environment:
+      PORT: 3001
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_NAME: taskboard
+      DB_USER: taskboard
+      DB_PASSWORD: taskboard
+      RABBITMQ_URL: amqp://guest:guest@rabbitmq:5672
+      RABBITMQ_EXCHANGE: taskboard.events
+      CORS_ORIGIN: '*'
+    ports:
+      - "3001:3001"
+
+  backend-migrate:
+    build:
+      context: ./backend
+    container_name: taskboard-migrate
+    depends_on:
+      - postgres
+    environment:
+      PORT: 3001
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_NAME: taskboard
+      DB_USER: taskboard
+      DB_PASSWORD: taskboard
+      RABBITMQ_URL: amqp://guest:guest@rabbitmq:5672
+    command: ["bun", "run", "migrate"]
+
+  frontend:
+    build:
+      context: ./frontend
+    container_name: taskboard-frontend
+    depends_on:
+      - backend
+    ports:
+      - "5173:5173"
+
+volumes:
+  pg_data:

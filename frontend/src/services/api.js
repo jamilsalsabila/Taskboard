@@ -1,0 +1,44 @@
+const inferredBaseUrl =
+  typeof window !== 'undefined'
+    ? `${window.location.protocol}//${window.location.hostname}:3001`
+    : 'http://localhost:3001';
+
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || inferredBaseUrl;
+
+const request = async (path, options = {}) => {
+  const response = await fetch(`${API_BASE_URL}${path}`, {
+    headers: { 'Content-Type': 'application/json' },
+    ...options
+  });
+
+  if (!response.ok) {
+    const payload = await response.json().catch(() => ({}));
+    throw new Error(payload.error || 'Request failed');
+  }
+
+  if (response.status === 204) {
+    return null;
+  }
+
+  const payload = await response.json();
+  return payload.data;
+};
+
+export const api = {
+  listTasks: () => request('/api/tasks'),
+  createTask: (body) => request('/api/tasks', { method: 'POST', body: JSON.stringify(body) }),
+  updateTask: (taskId, body) => request(`/api/tasks/${taskId}`, { method: 'PATCH', body: JSON.stringify(body) }),
+  moveTask: (taskId, status) =>
+    request(`/api/tasks/${taskId}/status`, { method: 'PATCH', body: JSON.stringify({ status }) }),
+  deleteTask: (taskId) => request(`/api/tasks/${taskId}`, { method: 'DELETE' }),
+  listComments: (taskId) => request(`/api/tasks/${taskId}/comments`),
+  addComment: (taskId, body) =>
+    request(`/api/tasks/${taskId}/comments`, { method: 'POST', body: JSON.stringify(body) }),
+  analytics: () => request('/api/analytics/assignees'),
+  listStickyNotes: () => request('/api/sticky-notes'),
+  createStickyNote: (body) =>
+    request('/api/sticky-notes', { method: 'POST', body: JSON.stringify(body) }),
+  updateStickyNote: (noteId, body) =>
+    request(`/api/sticky-notes/${noteId}`, { method: 'PATCH', body: JSON.stringify(body) }),
+  deleteStickyNote: (noteId) => request(`/api/sticky-notes/${noteId}`, { method: 'DELETE' })
+};

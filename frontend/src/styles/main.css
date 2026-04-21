@@ -1,0 +1,112 @@
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  background: #ffffff;
+  font-family: Arial, sans-serif;
+}
+
+.blank-page {
+  min-height: 100vh;
+  background: #ffffff;
+  position: relative;
+  overflow: hidden;
+}
+
+.plus-btn {
+  position: fixed;
+  top: 10px;
+  left: 12px;
+  width: 36px;
+  height: 36px;
+  border: none;
+  background: transparent;
+  color: #1f57e7;
+  font-size: 34px;
+  line-height: 1;
+  cursor: pointer;
+  padding: 0;
+  z-index: 1000;
+}
+
+.sticky-note {
+  position: fixed;
+  border-radius: 8px;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.15);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  touch-action: none;
+}
+
+.note-header {
+  height: 26px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 0 10px;
+  font-size: 12px;
+  color: rgba(0, 0, 0, 0.45);
+  background: rgba(255, 255, 255, 0.32);
+  cursor: move;
+  user-select: none;
+  touch-action: none;
+}
+
+.note-title {
+  width: 100%;
+  border: none;
+  background: transparent;
+  outline: none;
+  font-size: 12px;
+  color: rgba(0, 0, 0, 0.62);
+}
+
+.note-title-text {
+  width: 100%;
+  font-size: 12px;
+  color: rgba(0, 0, 0, 0.62);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  cursor: move;
+}
+
+.delete-note-btn {
+  border: none;
+  background: transparent;
+  color: rgba(0, 0, 0, 0.55);
+  cursor: pointer;
+  font-size: 14px;
+  line-height: 1;
+  padding: 0;
+}
+
+.note-body {
+  flex: 1;
+  width: 100%;
+  border: none;
+  background: transparent;
+  resize: none;
+  outline: none;
+  padding: 10px;
+  font-size: 14px;
+  color: #222;
+  touch-action: auto;
+}
+
+.resize-handle {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  width: 24px;
+  height: 24px;
+  border: none;
+  background: linear-gradient(135deg, transparent 50%, rgba(0, 0, 0, 0.28) 50%);
+  cursor: nwse-resize;
+  padding: 0;
+  touch-action: none;
+}
