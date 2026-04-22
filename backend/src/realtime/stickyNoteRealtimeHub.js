@@ -14,21 +14,27 @@ export class StickyNoteRealtimeHub {
     this.clients = new Set();
     this.wss = new WebSocketServer({ noServer: true });
 
-    this.wss.on('connection', (socket, request, user) => {
+    this.wss.on('connection', (socket, request, user, boardId) => {
       const client = {
         socket,
-        user
+        user,
+        boardId
       };
 
       this.clients.add(client);
       this.#sendTo(socket, {
         type: 'presence.snapshot',
         payload: {
-          users: this.#listUsers()
+          users: this.#listUsers(boardId),
+          boardId
         }
       });
 
-      this.broadcast('presence.joined', { user: client.user.name, users: this.#listUsers() });
+      this.broadcastToBoard(boardId, 'presence.joined', {
+        user: client.user.name,
+        users: this.#listUsers(boardId),
+        boardId
+      });
 
       socket.on('message', (raw) => {
         const message = safeParse(raw.toString());
@@ -41,7 +47,11 @@ export class StickyNoteRealtimeHub {
 
       socket.on('close', () => {
         this.clients.delete(client);
-        this.broadcast('presence.left', { user: client.user.name, users: this.#listUsers() });
+        this.broadcastToBoard(boardId, 'presence.left', {
+          user: client.user.name,
+          users: this.#listUsers(boardId),
+          boardId
+        });
       });
     });
   }
@@ -55,6 +65,7 @@ export class StickyNoteRealtimeHub {
       }
 
       const token = parsed.searchParams.get('token');
+      const boardId = parsed.searchParams.get('boardId');
       let user;
 
       try {
@@ -65,16 +76,23 @@ export class StickyNoteRealtimeHub {
         return;
       }
 
+      if (!boardId) {
+        socket.write('HTTP/1.1 400 Bad Request\r\n\r\n');
+        socket.destroy();
+        return;
+      }
+
       this.wss.handleUpgrade(request, socket, head, (ws) => {
-        this.wss.emit('connection', ws, request, user);
+        this.wss.emit('connection', ws, request, user, boardId);
       });
     });
   }
 
-  broadcast(type, payload) {
+  broadcastToBoard(boardId, type, payload) {
     const data = JSON.stringify({ type, payload });
 
     for (const client of this.clients) {
+      if (client.boardId !== boardId) continue;
       if (client.socket.readyState === client.socket.OPEN) {
         client.socket.send(data);
       }
@@ -94,7 +112,7 @@ export class StickyNoteRealtimeHub {
     socket.send(JSON.stringify(message));
   }
 
-  #listUsers() {
-    return [...this.clients].map((client) => client.user.name);
+  #listUsers(boardId) {
+    return [...this.clients].filter((client) => client.boardId === boardId).map((client) => client.user.name);
   }
 }

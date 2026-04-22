@@ -34,29 +34,41 @@ export class StickyNoteController {
     return this.authTokenService.extractFromAuthorizationHeader(request.headers.authorization);
   }
 
+  #boardId(request) {
+    const boardId = request.query.boardId;
+    if (!boardId || typeof boardId !== 'string') {
+      throw new Error('BOARD_REQUIRED');
+    }
+    return boardId;
+  }
+
   listNotes = async (request, h) => {
     this.#authenticate(request);
-    const notes = await this.stickyNoteService.listNotes();
+    const boardId = this.#boardId(request);
+    const notes = await this.stickyNoteService.listNotes(boardId);
     return h.response({ data: notes }).code(200);
   };
 
   createNote = async (request, h) => {
     this.#authenticate(request);
+    const boardId = this.#boardId(request);
     const payload = await createSchema.validateAsync(request.payload, { abortEarly: false });
-    const note = await this.stickyNoteService.createNote(payload);
+    const note = await this.stickyNoteService.createNote(boardId, payload);
     return h.response({ data: note }).code(201);
   };
 
   updateNote = async (request, h) => {
     this.#authenticate(request);
+    const boardId = this.#boardId(request);
     const payload = await updateSchema.validateAsync(request.payload, { abortEarly: false });
-    const note = await this.stickyNoteService.updateNote(request.params.noteId, payload);
+    const note = await this.stickyNoteService.updateNote(boardId, request.params.noteId, payload);
     return h.response({ data: note }).code(200);
   };
 
   deleteNote = async (request, h) => {
     this.#authenticate(request);
-    await this.stickyNoteService.deleteNote(request.params.noteId);
+    const boardId = this.#boardId(request);
+    await this.stickyNoteService.deleteNote(boardId, request.params.noteId);
     return h.response().code(204);
   };
 }

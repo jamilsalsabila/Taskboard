@@ -1,10 +1,6 @@
-# Taskboard Sticky Notes (Bun + Hapi + Vue + PostgreSQL + RabbitMQ + Docker)
+# Taskboard Sticky Notes
 
-Aplikasi sticky notes berbasis web dengan gaya papan kosong:
-- klik `+` untuk membuat note baru (warna & posisi acak),
-- drag & resize bebas (desktop + mobile),
-- edit judul (double click desktop / tap-hold mobile),
-- autosave ke PostgreSQL secara real-time.
+Aplikasi sticky notes realtime berbasis web dengan konsep papan bebas (blank canvas), dibangun dengan Bun + Hapi + Vue.
 
 ## Stack
 
@@ -12,40 +8,46 @@ Aplikasi sticky notes berbasis web dengan gaya papan kosong:
 - Backend: Bun.js + Hapi.js (fully async)
 - Database: PostgreSQL
 - Event bus: RabbitMQ
+- Realtime: WebSocket (`ws`)
 - Infra: Docker Compose
 
-## Fitur Utama (UI Saat Ini)
+## Fitur Saat Ini
 
 - Halaman putih minimalis + tombol `+` di kiri atas
-- Sticky note tak terbatas
-- Infinite canvas (scroll horizontal + vertical)
-- Posisi note bisa digeser bebas
-- Ukuran note bisa di-resize
-- Isi note (title + content) editable
+- Multi-board:
+  - pilih board aktif dari dropdown
+  - buat board baru dari tombol `+ Board`
+  - board aktif disimpan di `localStorage` key `taskboard-board-id`
+- Sticky note tak terbatas per board
+- Posisi random + warna random saat note dibuat
+- Drag, resize, bring-to-front (`zIndex`) desktop + mobile
+- Edit judul (double click desktop / tap-hold mobile)
+- Edit konten bebas
 - Hapus note
-- Persisten setelah refresh/restart backend (autosave ke DB)
-- Draft lokal tahan koneksi putus (IndexedDB)
-- Status sinkronisasi per-note: `Queued`, `Saving...`, `Saved`, `Draft`, `Offline draft`
-- Autosave queue per-note (lebih stabil saat ngetik cepat)
-- Kolaborasi realtime lintas device/browser (WebSocket):
-  - perubahan note tersinkron otomatis
-  - presence user online
-  - ganti nama kolaborasi dari tombol identitas di atas
-- Auth sederhana berbasis token:
-  - login guest dengan nama
-  - sticky notes API protected `Authorization: Bearer <token>`
-  - websocket handshake memakai token
+- Infinite canvas (scroll horizontal + vertical)
+- Kolaborasi realtime per-board:
+  - sinkron create/update/delete note
+  - presence user online per-board
+  - ubah nama kolaborasi
+- Auth guest berbasis token
+- Autosave stabil:
+  - debounce input
+  - save queue per-note
+  - status sinkronisasi: `Queued`, `Saving...`, `Saved`, `Draft`, `Offline draft`
+- Offline safety:
+  - draft lokal di IndexedDB
+  - dirty field protection agar update realtime tidak menimpa edit lokal
 
-## Arsitektur SRP
+## Arsitektur (SRP)
 
 - `controllers/`: validasi request + response HTTP
 - `services/`: aturan bisnis/use-case
 - `repositories/`: query database
 - `routes/`: registrasi endpoint
-- `db/`: koneksi pool + migrasi
-- `services/rabbitMqPublisher.js`: publish domain events
+- `realtime/`: WebSocket hub
+- `db/`: pool koneksi + migrasi
 
-## Menjalankan (Docker)
+## Menjalankan Dengan Docker
 
 1. Jalankan service:
 ```bash
@@ -62,19 +64,7 @@ docker compose run --rm backend-migrate
 - Backend API: `http://localhost:3001`
 - RabbitMQ UI: `http://localhost:15672` (`guest` / `guest`)
 
-## Environment Backend
-
-Variable minimum:
-- `PORT`
-- `DB_HOST`
-- `DB_PORT`
-- `DB_NAME`
-- `DB_USER`
-- `DB_PASSWORD`
-- `RABBITMQ_URL`
-- `AUTH_SECRET`
-
-## Menjalankan (Dev Cepat Tanpa Rebuild)
+## Menjalankan Mode Dev
 
 Backend:
 ```bash
@@ -90,21 +80,36 @@ bun install
 bun run dev --host 0.0.0.0 --port 5173
 ```
 
-## API Endpoint
+## Environment Backend
 
-Sticky notes:
-- `GET /api/sticky-notes`
-- `POST /api/sticky-notes`
-- `PATCH /api/sticky-notes/{noteId}`
-- `DELETE /api/sticky-notes/{noteId}`
-(semua endpoint sticky-notes membutuhkan header `Authorization`)
+- `PORT`
+- `CORS_ORIGIN`
+- `DB_HOST`
+- `DB_PORT`
+- `DB_NAME`
+- `DB_USER`
+- `DB_PASSWORD`
+- `RABBITMQ_URL`
+- `AUTH_SECRET`
+
+## API Ringkas
 
 Auth:
 - `POST /api/auth/guest` body: `{ "name": "Alice" }`
 
-Realtime collaboration:
-- `WS /ws?token=<auth_token>`
-- Broadcast event:
+Boards:
+- `GET /api/boards`
+- `POST /api/boards`
+
+Sticky notes (butuh `Authorization: Bearer <token>` + query `boardId`):
+- `GET /api/sticky-notes?boardId=<board_id>`
+- `POST /api/sticky-notes?boardId=<board_id>`
+- `PATCH /api/sticky-notes/{noteId}?boardId=<board_id>`
+- `DELETE /api/sticky-notes/{noteId}?boardId=<board_id>`
+
+Realtime:
+- `WS /ws?token=<auth_token>&boardId=<board_id>`
+- Event:
   - `sticky_note.created`
   - `sticky_note.updated`
   - `sticky_note.deleted`
@@ -113,7 +118,10 @@ Realtime collaboration:
   - `presence.left`
   - `presence.updated`
 
-Taskboard legacy (masih tersedia di backend):
+Health:
+- `GET /health`
+
+Legacy taskboard API (tetap tersedia):
 - `GET /api/tasks`
 - `POST /api/tasks`
 - `PATCH /api/tasks/{taskId}`
@@ -122,13 +130,3 @@ Taskboard legacy (masih tersedia di backend):
 - `GET /api/tasks/{taskId}/comments`
 - `POST /api/tasks/{taskId}/comments`
 - `GET /api/analytics/assignees`
-
-Health:
-- `GET /health`
-
-## Catatan Reliabilitas
-
-- Saat koneksi internet/Wi-Fi putus-putus:
-  - perubahan note tetap disimpan sebagai draft lokal (IndexedDB),
-  - autosave akan mencoba sinkron ulang saat request berikutnya berhasil,
-  - event realtime tidak akan menimpa teks/posisi terbaru yang masih kamu edit.

@@ -2,6 +2,7 @@ import { pool } from '../db/pool.js';
 
 const mapStickyNoteRow = (row) => ({
   id: row.id,
+  boardId: row.board_id,
   title: row.title,
   content: row.content,
   color: row.color,
@@ -15,30 +16,32 @@ const mapStickyNoteRow = (row) => ({
 });
 
 export class StickyNoteRepository {
-  async findAll() {
-    const result = await pool.query(`
-      SELECT id, title, content, color, x, y, width, height, z_index, created_at, updated_at
-      FROM sticky_notes
-      ORDER BY z_index ASC, created_at ASC
-    `);
+  async findAllByBoard(boardId) {
+    const result = await pool.query(
+      `SELECT id, board_id, title, content, color, x, y, width, height, z_index, created_at, updated_at
+       FROM sticky_notes
+       WHERE board_id = $1
+       ORDER BY z_index ASC, created_at ASC`,
+      [boardId]
+    );
 
     return result.rows.map(mapStickyNoteRow);
   }
 
-  async create({ title, content, color, x, y, width, height, zIndex }) {
+  async create({ boardId, title, content, color, x, y, width, height, zIndex }) {
     const result = await pool.query(
-      `INSERT INTO sticky_notes (title, content, color, x, y, width, height, z_index)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-       RETURNING id, title, content, color, x, y, width, height, z_index, created_at, updated_at`,
-      [title, content, color, x, y, width, height, zIndex]
+      `INSERT INTO sticky_notes (board_id, title, content, color, x, y, width, height, z_index)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+       RETURNING id, board_id, title, content, color, x, y, width, height, z_index, created_at, updated_at`,
+      [boardId, title, content, color, x, y, width, height, zIndex]
     );
 
     return mapStickyNoteRow(result.rows[0]);
   }
 
-  async update(id, payload) {
+  async update(id, boardId, payload) {
     const fields = [];
-    const values = [id];
+    const values = [id, boardId];
 
     if (Object.prototype.hasOwnProperty.call(payload, 'title')) {
       fields.push(`title = $${values.length + 1}`);
@@ -82,10 +85,10 @@ export class StickyNoteRepository {
 
     if (fields.length === 0) {
       const existing = await pool.query(
-        `SELECT id, title, content, color, x, y, width, height, z_index, created_at, updated_at
+        `SELECT id, board_id, title, content, color, x, y, width, height, z_index, created_at, updated_at
          FROM sticky_notes
-         WHERE id = $1`,
-        [id]
+         WHERE id = $1 AND board_id = $2`,
+        [id, boardId]
       );
       return existing.rows[0] ? mapStickyNoteRow(existing.rows[0]) : null;
     }
@@ -94,16 +97,19 @@ export class StickyNoteRepository {
       `UPDATE sticky_notes
        SET ${fields.join(', ')},
            updated_at = NOW()
-       WHERE id = $1
-       RETURNING id, title, content, color, x, y, width, height, z_index, created_at, updated_at`,
+       WHERE id = $1 AND board_id = $2
+       RETURNING id, board_id, title, content, color, x, y, width, height, z_index, created_at, updated_at`,
       values
     );
 
     return result.rows[0] ? mapStickyNoteRow(result.rows[0]) : null;
   }
 
-  async remove(id) {
-    const result = await pool.query('DELETE FROM sticky_notes WHERE id = $1 RETURNING id', [id]);
+  async remove(id, boardId) {
+    const result = await pool.query(
+      'DELETE FROM sticky_notes WHERE id = $1 AND board_id = $2 RETURNING id',
+      [id, boardId]
+    );
     return Boolean(result.rowCount);
   }
 }

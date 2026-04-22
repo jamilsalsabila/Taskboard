@@ -37,6 +37,8 @@ const request = async (path, options = {}) => {
 export const api = {
   authGuest: (name) =>
     request('/api/auth/guest', { method: 'POST', body: JSON.stringify({ name }) }),
+  listBoards: () => request('/api/boards'),
+  createBoard: (body) => request('/api/boards', { method: 'POST', body: JSON.stringify(body) }),
   listTasks: () => request('/api/tasks'),
   createTask: (body) => request('/api/tasks', { method: 'POST', body: JSON.stringify(body) }),
   updateTask: (taskId, body) => request(`/api/tasks/${taskId}`, { method: 'PATCH', body: JSON.stringify(body) }),
@@ -47,10 +49,17 @@ export const api = {
   addComment: (taskId, body) =>
     request(`/api/tasks/${taskId}/comments`, { method: 'POST', body: JSON.stringify(body) }),
   analytics: () => request('/api/analytics/assignees'),
-  listStickyNotes: () => request('/api/sticky-notes'),
-  createStickyNote: (body) =>
-    request('/api/sticky-notes', { method: 'POST', body: JSON.stringify(body) }),
-  updateStickyNote: (noteId, body) =>
-    request(`/api/sticky-notes/${noteId}`, { method: 'PATCH', body: JSON.stringify(body) }),
-  deleteStickyNote: (noteId) => request(`/api/sticky-notes/${noteId}`, { method: 'DELETE' })
+  listStickyNotes: (boardId) => request(`/api/sticky-notes?boardId=${encodeURIComponent(boardId)}`),
+  createStickyNote: (boardId, body) =>
+    request(`/api/sticky-notes?boardId=${encodeURIComponent(boardId)}`, {
+      method: 'POST',
+      body: JSON.stringify(body)
+    }),
+  updateStickyNote: (boardId, noteId, body) =>
+    request(`/api/sticky-notes/${noteId}?boardId=${encodeURIComponent(boardId)}`, {
+      method: 'PATCH',
+      body: JSON.stringify(body)
+    }),
+  deleteStickyNote: (boardId, noteId) =>
+    request(`/api/sticky-notes/${noteId}?boardId=${encodeURIComponent(boardId)}`, { method: 'DELETE' })
 };

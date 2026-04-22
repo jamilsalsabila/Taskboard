@@ -6,6 +6,8 @@ import { api, setAuthToken } from './services/api';
 import { loadAllDrafts, removeNoteDraft, saveNoteDraft } from './services/draftStore';
 
 const notes = ref([]);
+const boards = ref([]);
+const currentBoardId = ref(localStorage.getItem('taskboard-board-id') || '');
 const topLayer = ref(1);
 const editingTitleId = ref(null);
 const titleHoldState = ref(null);
@@ -29,6 +31,7 @@ const canvasHeight = ref(1600);
 const CANVAS_PADDING = 600;
 const CANVAS_MIN_WIDTH = 2400;
 const CANVAS_MIN_HEIGHT = 1600;
+const BOARD_STORAGE_KEY = 'taskboard-board-id';
 
 const COLORS = ['#fff59d', '#ffccbc', '#c8e6c9', '#bbdefb', '#d1c4e9', '#ffe082', '#b2dfdb'];
 
@@ -255,15 +258,26 @@ const normalizeUsers = (users) => {
   return users.filter((item) => typeof item === 'string' && item.length > 0);
 };
 
+const setCurrentBoard = (boardId) => {
+  currentBoardId.value = boardId;
+  if (boardId) {
+    localStorage.setItem(BOARD_STORAGE_KEY, boardId);
+  } else {
+    localStorage.removeItem(BOARD_STORAGE_KEY);
+  }
+};
+
 const connectRealtime = () => {
-  if (!authTokenRef.value) return;
+  if (!authTokenRef.value || !currentBoardId.value) return;
 
   if (socketRef.value) {
     socketRef.value.close();
     socketRef.value = null;
   }
 
-  const url = `${wsUrl}?token=${encodeURIComponent(authTokenRef.value)}`;
+  const url = `${wsUrl}?token=${encodeURIComponent(authTokenRef.value)}&boardId=${encodeURIComponent(
+    currentBoardId.value
+  )}`;
   const socket = new WebSocket(url);
   socketRef.value = socket;
   socketStatus.value = 'connecting';
@@ -340,6 +354,80 @@ const setName = async () => {
   }
 };
 
+const loadBoards = async () => {
+  const data = await api.listBoards();
+  boards.value = data;
+
+  if (!data.length) {
+    setCurrentBoard('');
+    return null;
+  }
+
+  const selected = data.find((board) => board.id === currentBoardId.value) || data[0];
+  setCurrentBoard(selected.id);
+  return selected;
+};
+
+const resetCanvasRuntime = () => {
+  notes.value.forEach((note) => {
+    clearSaveTimer(note.id);
+    saveRequestSeq.delete(note.id);
+    clearSaveQueue(note.id);
+    clearDirty(note.id);
+    clearDraft(note.id);
+    destroyInteract(note.id);
+  });
+  notes.value = [];
+  editingTitleId.value = null;
+  titleHoldState.value = null;
+  lastSavedHashes.clear();
+  noteSyncState.value = {};
+  ensureCanvasFromAllNotes();
+};
+
+const loadNotesForCurrentBoard = async () => {
+  if (!currentBoardId.value) {
+    resetCanvasRuntime();
+    return;
+  }
+
+  resetCanvasRuntime();
+  const data = await api.listStickyNotes(currentBoardId.value);
+  notes.value = data;
+  await applyDraftsToNotes();
+  data.forEach((note) => lastSavedHashes.set(note.id, payloadHash(toPayload(note))));
+
+  const maxZ = data.reduce((max, note) => Math.max(max, note.zIndex || 1), 1);
+  topLayer.value = maxZ;
+  ensureCanvasFromAllNotes();
+
+  await nextTick();
+  data.forEach((note) => {
+    setupInteract(note.id);
+    setSyncState(note.id, 'saved');
+  });
+};
+
+const switchBoard = async (boardId) => {
+  if (!boardId || boardId === currentBoardId.value) return;
+  setCurrentBoard(boardId);
+  await loadNotesForCurrentBoard();
+  connectRealtime();
+};
+
+const createBoard = async () => {
+  const name = window.prompt('Nama board baru:', '');
+  if (!name || !name.trim()) return;
+
+  try {
+    const board = await api.createBoard({ name: name.trim() });
+    boards.value = [...boards.value, board];
+    await switchBoard(board.id);
+  } catch (error) {
+    console.error('Failed to create board:', error);
+  }
+};
+
 const clampPosition = (note) => {
   note.x = Math.max(0, note.x);
   note.y = Math.max(0, note.y);
@@ -368,7 +456,7 @@ const scheduleSave = (id, delay = 280) => {
       const queue = getSaveQueue(id);
       const saved = await queue.add(async () => {
         setSyncState(id, 'saving');
-        return api.updateStickyNote(id, payload);
+        return api.updateStickyNote(currentBoardId.value, id, payload);
       });
       if (saveRequestSeq.get(id) !== seq) return;
 
@@ -479,6 +567,7 @@ const destroyInteract = (id) => {
 };
 
 const createNote = async () => {
+  if (!currentBoardId.value) return;
   const width = 220;
   const height = 180;
   const viewport = viewportRef.value;
@@ -497,7 +586,7 @@ const createNote = async () => {
   topLayer.value += 1;
 
   try {
-    const created = await api.createStickyNote({
+    const created = await api.createStickyNote(currentBoardId.value, {
       title: 'Sticky',
       content: '',
       color: randomColor(),
@@ -532,7 +621,7 @@ const removeNote = async (id) => {
   destroyInteract(id);
 
   try {
-    await api.deleteStickyNote(id);
+    await api.deleteStickyNote(currentBoardId.value, id);
   } catch (error) {
     console.error('Failed to delete sticky note:', error);
   }
@@ -600,7 +689,7 @@ onMounted(async () => {
     if (authTokenRef.value) {
       setAuthToken(authTokenRef.value);
       try {
-        await api.listStickyNotes();
+        await api.listBoards();
       } catch {
         await ensureAuth(collabName.value);
       }
@@ -608,17 +697,8 @@ onMounted(async () => {
       await ensureAuth(collabName.value);
     }
 
-    const data = await api.listStickyNotes();
-    notes.value = data;
-    await applyDraftsToNotes();
-    data.forEach((note) => lastSavedHashes.set(note.id, payloadHash(toPayload(note))));
-
-    const maxZ = data.reduce((max, note) => Math.max(max, note.zIndex || 1), 1);
-    topLayer.value = maxZ;
-    ensureCanvasFromAllNotes();
-
-    await nextTick();
-    data.forEach((note) => setupInteract(note.id));
+    await loadBoards();
+    await loadNotesForCurrentBoard();
     connectRealtime();
   } catch (error) {
     console.error('Failed to initialize app:', error);
@@ -651,10 +731,25 @@ onBeforeUnmount(() => {
 <template>
   <main ref="viewportRef" class="blank-page">
     <section class="collab-bar">
-      <button class="identity-btn" type="button" @click="setName">
-        {{ collabName }}
-      </button>
-      <span class="presence-pill">{{ socketStatus }} | {{ onlineUsers.length }} online</span>
+      <div class="collab-left">
+        <button class="identity-btn" type="button" @click="setName">
+          {{ collabName }}
+        </button>
+        <select
+          class="board-select"
+          :value="currentBoardId"
+          @change="switchBoard($event.target.value)"
+        >
+          <option v-for="board in boards" :key="board.id" :value="board.id">
+            {{ board.name }}
+          </option>
+        </select>
+        <button class="board-add-btn" type="button" @click="createBoard">+ Board</button>
+      </div>
+      <span class="presence-pill">
+        {{ boards.find((item) => item.id === currentBoardId)?.name || '-' }} | {{ socketStatus }} |
+        {{ onlineUsers.length }} online
+      </span>
     </section>
 
     <button class="plus-btn" type="button" aria-label="Tambah" @click="createNote">+</button>

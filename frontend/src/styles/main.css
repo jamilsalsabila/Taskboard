@@ -34,13 +34,38 @@ body {
   z-index: 1001;
 }
 
-.identity-btn {
+.collab-left {
+  display: flex;
+  align-items: center;
+  gap: 8px;
   pointer-events: auto;
+}
+
+.identity-btn {
   border: 1px solid #d8deea;
   background: #fff;
   border-radius: 999px;
   padding: 6px 10px;
   color: #2f3a4f;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.board-select {
+  border: 1px solid #d8deea;
+  background: #fff;
+  border-radius: 999px;
+  padding: 6px 10px;
+  color: #2f3a4f;
+  font-size: 12px;
+}
+
+.board-add-btn {
+  border: 1px solid #cbd8ff;
+  background: #eef3ff;
+  border-radius: 999px;
+  padding: 6px 10px;
+  color: #2e4fa8;
   font-size: 12px;
   cursor: pointer;
 }

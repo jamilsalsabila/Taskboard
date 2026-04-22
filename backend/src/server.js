@@ -5,17 +5,21 @@ import { pool } from './db/pool.js';
 import { TaskRepository } from './repositories/taskRepository.js';
 import { StickyNoteRepository } from './repositories/stickyNoteRepository.js';
 import { UserRepository } from './repositories/userRepository.js';
+import { BoardRepository } from './repositories/boardRepository.js';
 import { RabbitMqPublisher } from './services/rabbitMqPublisher.js';
 import { TaskService } from './services/taskService.js';
 import { StickyNoteService } from './services/stickyNoteService.js';
 import { AuthService } from './services/authService.js';
 import { AuthTokenService } from './services/authTokenService.js';
+import { BoardService } from './services/boardService.js';
 import { TaskController } from './controllers/taskController.js';
 import { StickyNoteController } from './controllers/stickyNoteController.js';
 import { AuthController } from './controllers/authController.js';
+import { BoardController } from './controllers/boardController.js';
 import { registerTaskRoutes } from './routes/taskRoutes.js';
 import { registerStickyNoteRoutes } from './routes/stickyNoteRoutes.js';
 import { registerAuthRoutes } from './routes/authRoutes.js';
+import { registerBoardRoutes } from './routes/boardRoutes.js';
 import { StickyNoteRealtimeHub } from './realtime/stickyNoteRealtimeHub.js';
 
 const createServer = async () => {
@@ -42,16 +46,25 @@ const createServer = async () => {
   const taskRepository = new TaskRepository();
   const stickyNoteRepository = new StickyNoteRepository();
   const userRepository = new UserRepository();
+  const boardRepository = new BoardRepository();
 
+  const boardService = new BoardService(boardRepository);
   const taskService = new TaskService(taskRepository, eventPublisher);
-  const stickyNoteService = new StickyNoteService(stickyNoteRepository, eventPublisher, realtimeHub);
+  const stickyNoteService = new StickyNoteService(
+    stickyNoteRepository,
+    boardService,
+    eventPublisher,
+    realtimeHub
+  );
   const authService = new AuthService(userRepository, authTokenService);
 
   const taskController = new TaskController(taskService);
   const stickyNoteController = new StickyNoteController(stickyNoteService, authTokenService);
   const authController = new AuthController(authService);
+  const boardController = new BoardController(boardService, authTokenService);
 
   registerAuthRoutes(server, authController);
+  registerBoardRoutes(server, boardController);
   registerTaskRoutes(server, taskController);
   registerStickyNoteRoutes(server, stickyNoteController);
 
@@ -86,6 +99,14 @@ const createServer = async () => {
 
     if (message.includes('STICKY_NOTE_NOT_FOUND')) {
       return h.response({ error: 'Sticky note not found' }).code(404);
+    }
+
+    if (message.includes('BOARD_REQUIRED')) {
+      return h.response({ error: 'Board is required' }).code(400);
+    }
+
+    if (message.includes('BOARD_NOT_FOUND')) {
+      return h.response({ error: 'Board not found' }).code(404);
     }
 
     if (
